@@ -305,6 +305,16 @@ Please see the [RT1060/README.md](RT1060/README.md) for further usage and detail
 
 <br />
 
+#### am26xx (TI Sitara AM26xx)
+
+This directory contains wolfCrypt test and benchmark applications for the TI
+AM26xx family of Sitara MCUs (Cortex-R5F).
+
+Please see the [am26xx/README.md](am26xx/README.md) for further usage and details.
+
+
+<br />
+
 #### NXP SE050
 
 This directory contains example applications for NXP's SE050. The examples
