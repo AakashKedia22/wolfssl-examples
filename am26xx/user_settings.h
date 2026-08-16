@@ -33,6 +33,23 @@
 #define NO_WOLFSSL_MEMORY
 #define WOLFSSL_NO_CURRDIR
 
+/* HSM M4 heap is only 16KB (see --heap_size in ti-arm-clang/linker.cmd);
+ * without this the benchmark defaults to 1MB test buffers and its
+ * malloc()/aligned_alloc() calls fail immediately. */
+#define BENCH_EMBEDDED
+
+/* ---- Debug output -- route printf through the TIFS debug log ----
+ * <stdio.h> is pre-included here so its own printf prototype is parsed
+ * before the macro below exists; otherwise later includes of <stdio.h>
+ * (e.g. from wolfssl/wolfcrypt/logging.h) would macro-expand their own
+ * printf declaration and fail to compile. */
+#include <stdio.h>
+#include <kernel/dpl/DebugP.h>
+#ifdef printf
+#undef printf
+#endif
+#define printf(format, ...) DebugP_log(format, ##__VA_ARGS__)
+
 /* ---- Math -- SP Math (optimized for Cortex-R5) ---- */
 #define WOLFSSL_SP
 #define WOLFSSL_SP_MATH
@@ -40,10 +57,12 @@
 #define SP_WORD_SIZE                32
 
 /* ---- ECC ---- */
+#ifndef WOLFCRYPT_DISABLE_ECC
 #define HAVE_ECC
 #define ECC_TIMING_RESISTANT
 #define HAVE_ECC256
 #define WOLFSSL_HAVE_SP_ECC
+#endif
 
 /* ---- RSA ---- */
 #define HAVE_RSA
@@ -53,18 +72,24 @@
 
 /* ---- SHA ---- */
 #define WOLFSSL_SHA256
+#ifndef WOLFCRYPT_DISABLE_SHA512
 #define WOLFSSL_SHA512
+#endif
 
 /* ---- AES ---- */
+#ifndef NO_AES
 #define HAVE_AESGCM
 #define HAVE_AES_ECB
 #define WOLFSSL_AES_DIRECT
 #define HAVE_AES_CBC
 #define WOLFSSL_AES_COUNTER
+#endif
 
 /* ---- Other crypto ---- */
+#ifndef WOLFCRYPT_DISABLE_CHACHA
 #define HAVE_CHACHA
 #define HAVE_POLY1305
+#endif
 #define HAVE_PWDBASED
 #define HAVE_HASHDRBG
 

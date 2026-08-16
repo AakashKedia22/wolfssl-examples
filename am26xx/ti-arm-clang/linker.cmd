@@ -4,6 +4,7 @@
 
 #define M4_PROCESS_STACK_SIZE       2048
 #define M4_MAIN_STACK_SIZE          (16*1024)
+#define M4_HEAP_SIZE                (16*1024)
 #define M4_TOTAL_STACK_SIZE         (M4_PROCESS_STACK_SIZE + M4_MAIN_STACK_SIZE + 8)
 
 /*
@@ -13,7 +14,7 @@
  * .bss.filebuf) may overflow into L2 OCRAM (0x70000000), which the M4 can
  * access at runtime via the mpu_firewall (L2OCRAM_BANK0_SLV) config.
  */
-#define HSM_RAM_CODE_DATA_SIZE          (AVAILABLE_MEMORY - M4_TOTAL_STACK_SIZE)
+#define HSM_RAM_CODE_DATA_SIZE          (AVAILABLE_MEMORY - M4_TOTAL_STACK_SIZE - M4_HEAP_SIZE)
 #define HSM_RAM_UNINIT_DATA_SIZE        (16*1024)
 
 /* make sure below retain is there in your linker command file, it keeps the vector table in the final binary */
@@ -26,11 +27,11 @@
  *   uses this stack.
  * - After vTaskStartScheduler() each task created in FreeRTOS has its own stack
  */
---stack_size=8192
+--stack_size=16384
 /* This is the heap size for malloc() API in NORTOS and FreeRTOS
  * This is also the heap used by pvPortMalloc in FreeRTOS
  */
---heap_size=1024
+--heap_size=16384
 
 SECTIONS
 {

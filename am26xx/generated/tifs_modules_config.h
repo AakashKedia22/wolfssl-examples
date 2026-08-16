@@ -52,14 +52,38 @@ void Modules_init(void);
 void Modules_deinit(void);
 
 /*
- *  HSM Server 
+ *  HSM Server
  */
 #include <modules/hsmserver/hsmserver.h>
 
 /* sysconfig generated parameter QUEUE LENGTH */
 #define SIPC_QUEUE_LENGTH   (32u)
-/* Total number of secure cores */ 
+/* Total number of secure cores */
 #define SIPC_NUM_R5_CORES   (2u)
+
+/* -------------------------------------------------------------------------
+ * Fault Injection Hardening (FIH) - SysConfig generated defines
+ * ------------------------------------------------------------------------- */
+
+/* Maximum number of NOP iterations for the FIH delay loop.
+ * Actual loop count is randomised in [0, FIH_DELAY_LOOP_COUNT] when
+ * FAULT_INJECTION_HARDENING_ENABLED is defined.
+ * Wrapped in #undef / #define to override any fallback default that may
+ * have been set by hsm_utils.h before this generated header was included. */
+#undef  FIH_DELAY_LOOP_COUNT
+#define FIH_DELAY_LOOP_COUNT    (16U)
+
+/* Enable FIH macros (FIH_EQ, FIH_NOT_EQ, FIH_SET) and random delay in
+ * HsmServer_FIH_delay(). */
+#define FAULT_INJECTION_HARDENING_ENABLED
+
+/* Use hardware RNG (RNG_setup / RNG_read) for the FIH delay random count.
+ * When not defined, C stdlib rand() is used instead. */
+#define HW_RANDOM_NUM
+
+/* Enable secure asset and key erasure inside HsmServer_FIH_panic().
+ * Overrides and locks the KEK, then zeroes keyring and asset structures. */
+#define FIH_ERASE_SECURE_ASSETS
 
 /*
  *  Keyring

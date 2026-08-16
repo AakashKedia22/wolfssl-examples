@@ -50,6 +50,7 @@ const keyring1       = keyring.addInstance();
  * Write custom configuration values to the imported modules.
  */
 dthe1.$name = "CONFIG_DTHE0";
+dthe1.enableDMA = true;
 
 mpu_firewall1.$name                          = "CONFIG_MPU_FIREWALL0";
 mpu_firewall1.mpu_region.create(1);
