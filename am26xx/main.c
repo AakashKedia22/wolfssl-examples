@@ -26,8 +26,6 @@ int main()
     Drivers_open();
     Board_driversOpen();
 
-    HsmServer_sendBootNotify(SystemP_WAIT_FOREVER);
-
     wolfssl_platform_init();
 
 #if defined(WOLFCRYPT_BENCHMARK)
@@ -35,6 +33,8 @@ int main()
 #else
     wolfcrypt_test_main(0, NULL);
 #endif
+
+    HsmServer_sendBootNotify(SystemP_WAIT_FOREVER);
 
     /*copying Hsm memory log to R5 memory log*/
     memset((void *)MEMLOG_BASE_ADDRESS, 0x00, DebugP_MEM_LOG_SIZE);

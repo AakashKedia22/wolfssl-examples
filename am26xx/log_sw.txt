@@ -1,0 +1,46 @@
+INFO: Bootloader_socLoadHsmRtFw:76: DevType : HSSE                                          
+INFO: Bootloader_socLoadHsmRtFw:78: HSMRT Size in Bytes : 91875                             
+INFO: Bootloader_socLoadHsmRtFw:97: hsm runtime firmware load complete ...                  
+[sbl-log]    10.00000s : DTHE Log SBL is Booted Successfully... Logs from HSM Run Time is below...
+                                                                                            
+[hsm0-0]     0.001441s : ------------------------------------------------------------------------------
+[hsm0-0]     0.002247s :  wolfSSL version 5.9.2                                             
+[hsm0-0]     0.002652s : ------------------------------------------------------------------------------
+[hsm0-0]     0.003480s : wolfCrypt Benchmark (block bytes 1024, min 1.0 sec each)           
+[hsm0-0]    10.035111s : RNG SHA-256 DRBG             5 MiB took 1.003 seconds,    5.210 MiB/s
+[hsm0-0]    20.057053s : AES-128-CBC-enc              2 MiB took 1.002 seconds,    1.901 MiB/s
+[hsm0-0]    30.154743s : AES-128-CBC-dec              2 MiB took 1.009 seconds,    1.887 MiB/s
+[hsm0-0]    40.164902s : AES-192-CBC-enc              2 MiB took 1.001 seconds,    1.635 MiB/s
+[hsm0-0]    50.176199s : AES-192-CBC-dec              2 MiB took 1.001 seconds,    1.659 MiB/s
+[hsm0-0]    60.229866s : AES-256-CBC-enc              1 MiB took 1.005 seconds,    1.433 MiB/s
+[hsm0-0]    70.294336s : AES-256-CBC-dec              1 MiB took 1.006 seconds,    1.480 MiB/s
+[hsm0-0]    80.362564s : AES-128-GCM-enc            400 KiB took 1.006 seconds,  397.428 KiB/s
+[hsm0-0]    90.682681s : AES-128-GCM-dec            400 KiB took 1.032 seconds,  387.719 KiB/s
+[hsm0-0]   101.090818s : AES-192-GCM-enc            400 KiB took 1.040 seconds,  384.451 KiB/s
+[hsm0-0]   111.750663s : AES-192-GCM-dec            400 KiB took 1.066 seconds,  375.359 KiB/s
+[hsm0-0]   121.828313s : AES-256-GCM-enc            375 KiB took 1.007 seconds,  372.249 KiB/s
+[hsm0-0]   132.141927s : AES-256-GCM-dec            375 KiB took 1.031 seconds,  363.717 KiB/s
+[hsm0-0]   142.546663s : GMAC Default               525 KiB took 1.040 seconds,  504.781 KiB/s
+[hsm0-0]   152.583106s : AES-128-ECB-enc              2 MiB took 1.003 seconds,    2.345 MiB/s
+[hsm0-0]   162.623844s : AES-128-ECB-dec              2 MiB took 1.004 seconds,    2.365 MiB/s
+[hsm0-0]   172.639412s : AES-192-ECB-enc              2 MiB took 1.001 seconds,    1.953 MiB/s
+[hsm0-0]   182.650236s : AES-192-ECB-dec              2 MiB took 1.001 seconds,    2.018 MiB/s
+[hsm0-0]   192.676160s : AES-256-ECB-enc              2 MiB took 1.002 seconds,    1.672 MiB/s
+[hsm0-0]   202.690897s : AES-256-ECB-dec              2 MiB took 1.001 seconds,    1.760 MiB/s
+[hsm0-0]   212.733094s : AES-128-CTR                  2 MiB took 1.004 seconds,    1.921 MiB/s
+[hsm0-0]   222.799083s : AES-192-CTR                  2 MiB took 1.006 seconds,    1.650 MiB/s
+[hsm0-0]   232.940525s : AES-256-CTR                  1 MiB took 1.014 seconds,    1.445 MiB/s
+[hsm0-0]   242.968605s : MD5                          7 MiB took 1.003 seconds,    6.770 MiB/s
+[hsm0-0]   253.016241s : SHA                          4 MiB took 1.004 seconds,    3.889 MiB/s
+[hsm0-0]   263.058849s : SHA-256                      2 MiB took 1.004 seconds,    2.189 MiB/s
+[hsm0-0]   273.133761s : SHA-512                      1 MiB took 1.007 seconds,    1.285 MiB/s
+[hsm0-0]   283.207958s : SHA-512/224                  1 MiB took 1.007 seconds,    1.285 MiB/s
+[hsm0-0]   293.282273s : SHA-512/256                  1 MiB took 1.007 seconds,    1.285 MiB/s
+[hsm0-0]   303.300700s : HMAC-MD5                     7 MiB took 1.001 seconds,    6.704 MiB/s
+[hsm0-0]   313.318450s : HMAC-SHA                     4 MiB took 1.001 seconds,    3.852 MiB/s
+[hsm0-0]   323.337074s : HMAC-SHA256                  2 MiB took 1.001 seconds,    2.170 MiB/s
+[hsm0-0]   333.379986s : HMAC-SHA512                  1 MiB took 1.004 seconds,    1.265 MiB/s
+[hsm0-0]   343.528055s : PBKDF2                     256 bytes took 1.014 seconds,  252.346 bytes/s
+[hsm0-0]   353.532318s : RNG      256 SHA256 Init/Free  39418 ops took 1.000 sec, avg 0.025 ms, 39415.755 o
+ps/sec
+[hsm0-0]   353.533247s : Benchmark complete

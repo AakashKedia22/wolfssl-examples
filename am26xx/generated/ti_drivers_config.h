@@ -73,6 +73,7 @@ void System_deinit(void);
 /* Edma handler*/
 EDMA_Handle gEdmaHandle[CONFIG_EDMA_NUM_INSTANCES];
 
+
 /*
  * MPU Firewall
  */
