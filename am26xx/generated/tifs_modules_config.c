@@ -42,6 +42,7 @@
 uint8_t gQueue_HsmToSecureHost[SIPC_NUM_R5_CORES][SIPC_QUEUE_LENGTH*SIPC_MSG_SIZE] __attribute__((aligned(8),section(".bss.sipc_hsm_queue_mem")));
 uint8_t gQueue_SecureHostToHsm[SIPC_NUM_R5_CORES][SIPC_QUEUE_LENGTH*SIPC_MSG_SIZE] __attribute__((aligned(8),section(".bss.sipc_secure_host_queue_mem")));
 
+void HsmServer_config(void);
 void HsmServer_config(void)
 {
     SIPC_Params sipcParams;
@@ -84,7 +85,7 @@ void HsmServer_config(void)
 Keyring_Info_t   gKeyringInfo __attribute__((section(".keyring_info_mem")));
 
 /**
- * \brief  Pointer to the Asymmetric key at index 0
+ * \brief Pointer to the Asymmetric public key hash at index 0
  */
 Keyring_AsymmKey_t   gKeyringAsymmKey[KEYRING_ASYMM_SIZE] __attribute__((section(".keyring_asymm_mem")));
 
@@ -93,7 +94,25 @@ Keyring_AsymmKey_t   gKeyringAsymmKey[KEYRING_ASYMM_SIZE] __attribute__((section
  */
 Keyring_SymmKey_t   gKeyringSymmKey[KEYRING_SYMM_SIZE] __attribute__((section(".keyring_symm_mem")));
 
+/**
+ * \brief  Pointer to the Asymmetric private key at index 0
+ */
+Keyring_AsymmPrivKey_t   gKeyringAsymmPrivKey[KEYRING_ASYMM_PRIVATE_SIZE] __attribute__((section(".keyring_asymm_private_mem")));
+
+/**
+ * \brief  Pointer to the custom keyring data at index 0
+ */
+uint8_t gKeyringCustomData[KEYRING_CUSTOM_DATA_SIZE] __attribute__((section(".keyring_custom_data_mem")));
+
+
 extern Asset_Info gAssetInfo;
+
+/* ========================================================================== */
+/*                        Function Prototypes                                 */
+/* ========================================================================== */
+
+
+void KEYRING_populate_root_keys(uint8_t keyRevision, uint8_t keyCount);
 
 
 void KEYRING_init_secMgrBased(void)
@@ -101,12 +120,25 @@ void KEYRING_init_secMgrBased(void)
     uint8_t keyRevision;
     uint8_t keyCount;
 
+
     /* fetch key revision from secure manager */
 	SecMgr_getKeyRevision(&keyRevision);
 
     /* fetch key count from secure manager */
     SecMgr_getKeyCount(&keyCount);
 
+    /* Populate root keys */
+    KEYRING_populate_root_keys(keyRevision, keyCount);
+
+
+}
+
+void KEYRING_init(void) {
+
+    KEYRING_init_secMgrBased();
+}
+
+void KEYRING_populate_root_keys(uint8_t keyRevision, uint8_t keyCount) {
     switch (keyCount)
     {
         case 0U:
@@ -124,10 +156,24 @@ void KEYRING_init_secMgrBased(void)
             SecMgr_enableReadAccess(CSL_SecMgrDeviceKey_CUST_BMPK1);
             SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_BMPK1, (uint32_t *) &gKeyringAsymmKey[KEYRING_BMPKH_INDEX].publicKeyHash);
             SecMgr_enableReadAccess(CSL_SecMgrDeviceKey_CUST_BMPK2);
-            SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_BMPK2, (uint32_t *) &gKeyringAsymmKey[KEYRING_BMPKH_INDEX].publicKeyHash[8]);
+            SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_BMPK2, (uint32_t *) &gKeyringAsymmKey[KEYRING_BMPKH_INDEX].publicKeyHash[8U]);
             SecMgr_disableReadAccess(CSL_SecMgrDeviceKey_CUST_BMPK1);
             SecMgr_disableReadAccess(CSL_SecMgrDeviceKey_CUST_BMPK2);
-            if(keyRevision == 2U)
+            /* SMPK can be used for both application authentication and debug authorization 
+            0bXXXXXXXX_XXXXXXXX_XXXXXXXX_XXXXXXXX
+            <-----------rsvd(8b)------>|<-- imageAuth(4b)-->|<-- debugAuth (4b) →   */
+            gKeyringAsymmKey[KEYRING_SMPKH_INDEX].keyRights  = KEYRING_SMPKH_KEY_RIGHTS;
+            gKeyringAsymmKey[KEYRING_SMPKH_INDEX].keyId  = KEYRING_SMPKH_INDEX;
+            /* Populate Hash Algorithm for SMPK */
+            gKeyringAsymmKey[KEYRING_SMPKH_INDEX].hashAlgo = HASH_ALGO_SHA2_512;
+            /* Populate SMPKH from secure manager at index 0 in keyring */
+            SecMgr_enableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK1);
+            SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_SMPK1, (uint32_t *) &gKeyringAsymmKey[KEYRING_SMPKH_INDEX].publicKeyHash);
+            SecMgr_enableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK2);
+            SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_SMPK2, (uint32_t *) &gKeyringAsymmKey[KEYRING_SMPKH_INDEX].publicKeyHash[8U]);
+            SecMgr_disableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK1);
+            SecMgr_disableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK2);
+            if(FIH_EQ(keyRevision, 2U))
             {
                 if(SecMgr_isLocked(CSL_SecMgrDeviceKey_CUST_BMEK) == SEC_MGR_BOOL_FALSE)
                 {
@@ -142,9 +188,32 @@ void KEYRING_init_secMgrBased(void)
                 gKeyringSymmKey[KEYRING_DBMEK_INDEX].keyRights  = KEYRING_BMEK_KEY_RIGHTS;
                 gKeyringSymmKey[KEYRING_DBMEK_INDEX].keyLength  = sizeof(gKeyringSymmKey[KEYRING_DBMEK_INDEX].aesKey);
                 /* Populate derived active root key from Assets */
-                (void) memcpy((void *) &gKeyringSymmKey[KEYRING_DBMEK_INDEX].aesKey, (void *) gAssetInfo.derivedKey, 
-                                    sizeof(gKeyringSymmKey[KEYRING_DBMEK_INDEX].aesKey));
+                (void) HsmServer_memcpy((void *) &gKeyringSymmKey[KEYRING_DBMEK_INDEX].aesKey, 
+                                        sizeof(gKeyringSymmKey[KEYRING_DBMEK_INDEX].aesKey), 
+                                        (void *) gAssetInfo.derivedKey, 
+                                        sizeof(gKeyringSymmKey[KEYRING_DBMEK_INDEX].aesKey));
+            } else if(FIH_EQ(keyRevision, 1U)) {
+                if(SecMgr_isLocked(CSL_SecMgrDeviceKey_CUST_SMEK) == SEC_MGR_BOOL_FALSE) {
+                    /* Populate SMEK in keyring */
+                    gKeyringSymmKey[KEYRING_SMEK_INDEX].keyId  = KEYRING_SMEK_INDEX;
+                    gKeyringSymmKey[KEYRING_SMEK_INDEX].keyRights  = KEYRING_SMEK_KEY_RIGHTS;
+                    gKeyringSymmKey[KEYRING_SMEK_INDEX].keyLength  = sizeof(gKeyringSymmKey[KEYRING_SMEK_INDEX].aesKey);
+                    SecMgr_enableReadAccess(CSL_SecMgrDeviceKey_CUST_SMEK);
+                    SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_SMEK, (uint32_t*)&gKeyringSymmKey[KEYRING_SMEK_INDEX].aesKey);
+                    SecMgr_disableReadAccess(CSL_SecMgrDeviceKey_CUST_SMEK);
+                }
+                gKeyringSymmKey[KEYRING_DSMEK_INDEX].keyId  = KEYRING_DSMEK_INDEX;
+                gKeyringSymmKey[KEYRING_DSMEK_INDEX].keyRights  = KEYRING_SMEK_KEY_RIGHTS;
+                gKeyringSymmKey[KEYRING_DSMEK_INDEX].keyLength  = sizeof(gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey);
+                /* Populate derived active root key from Assets */
+                (void) HsmServer_memcpy((void *) &gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey, 
+                                        sizeof(gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey), 
+                                        (void *) gAssetInfo.derivedKey, 
+                                        sizeof(gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey));
+            } else {
+                /* Do nothing */
             }
+            break;
         case 1U:
             /*Case 1 will be executed if the keyCount > 0 and  keyRevision < 2*/
             
@@ -164,10 +233,10 @@ void KEYRING_init_secMgrBased(void)
             SecMgr_enableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK1);
             SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_SMPK1, (uint32_t *) &gKeyringAsymmKey[KEYRING_SMPKH_INDEX].publicKeyHash);
             SecMgr_enableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK2);
-            SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_SMPK2, (uint32_t *) &gKeyringAsymmKey[KEYRING_SMPKH_INDEX].publicKeyHash[8]);
+            SecMgr_getKey(CSL_SecMgrDeviceKey_CUST_SMPK2, (uint32_t *) &gKeyringAsymmKey[KEYRING_SMPKH_INDEX].publicKeyHash[8U]);
             SecMgr_disableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK1);
             SecMgr_disableReadAccess(CSL_SecMgrDeviceKey_CUST_SMPK2);
-            if(keyRevision == 1U)
+            if(FIH_EQ(keyRevision, 1U))
             {
                  if(SecMgr_isLocked(CSL_SecMgrDeviceKey_CUST_SMEK) == SEC_MGR_BOOL_FALSE)
                 {
@@ -183,19 +252,20 @@ void KEYRING_init_secMgrBased(void)
                 gKeyringSymmKey[KEYRING_DSMEK_INDEX].keyRights  = KEYRING_SMEK_KEY_RIGHTS;
                 gKeyringSymmKey[KEYRING_DSMEK_INDEX].keyLength  = sizeof(gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey);
                 /* Populate derived active root key from Assets */
-                (void) memcpy((void *) &gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey, (void *) gAssetInfo.derivedKey, 
-                                    sizeof(gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey));
+                (void) HsmServer_memcpy((void *) &gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey, 
+                                        sizeof(gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey), 
+                                        (void *) gAssetInfo.derivedKey, 
+                                        sizeof(gKeyringSymmKey[KEYRING_DSMEK_INDEX].aesKey));
             }
+            break;
         default:
             break;
     }
 
+    return;
 }
 
-void KEYRING_init(void) {
 
-    KEYRING_init_secMgrBased();
-}
 
 /*
  * Common Functions

@@ -36,9 +36,9 @@
 #include "ti_drivers_config.h"
 
 
-uint32_t gDtheConfigNum = 1;
-uint32_t gPkaConfigNum  = 1;
-uint32_t gRngConfigNum = 1;
+uint32_t gDtheConfigNum = 1U;
+uint32_t gPkaConfigNum  = 1U;
+uint32_t gRngConfigNum = 1U;
 
 /* Secure context crypto dthe, aes and sha accelerators base address */
 DTHE_Attrs gDTHE_Attrs[1] =
@@ -55,7 +55,7 @@ DTHE_Attrs gDTHE_Attrs[1] =
         /* SM4 base address : Not supported */
         .sm4BaseAddr        = 0xFFFFFFFFU,
         /* For checking dthe driver open or close */
-        .isOpen             = FALSE,
+        .isOpen             = 0U,
     },
 };
 
@@ -95,9 +95,9 @@ RNG_Attrs gRNG_Attrs[1] =
             /* RNG base address */
             .rngBaseAddr = CSL_HSM_TRNG_U_BASE,
             /* For checking rng driver open or close */
-            .isOpen = FALSE,
+            .isOpen = 0U,
             /* mode macro for DRBG */
-            .mode = FALSE,
+            .mode = 0U,
             /* Drbg seeding value */
             .seedValue = NULL,
             /* Seed array size in words */
@@ -176,7 +176,7 @@ DMA_Config gDmaConfig[1]=
     },
 };
 
-uint32_t gDmaConfigNum = 1;
+uint32_t gDmaConfigNum = 1U;
 
 /* EDMA Driver Open Parameters */
 EDMA_Params gDtheDmaParams[CONFIG_EDMA_NUM_INSTANCES] =

@@ -41,6 +41,12 @@ ENABLE_CHACHA ?= no
 # (wolfcrypt/src/aes.c). Mutually exclusive with the software AES source.
 ENABLE_HW_AES ?= no
 
+# When yes, SHA/MD5/HMAC are offloaded to the AM263Px's DTHE hardware crypto
+# engine (wolfcrypt/src/port/ti-am26xx/ti-hash.c, ti-hmac.c) instead of
+# running in software (sha256.c sha512.c sha.c md5.c hmac.c). Independent of
+# ENABLE_HW_AES; either or both may be enabled.
+ENABLE_HW_SHA ?= no
+
 include $(TIFS_PATH)/imports.mak
 include $(TIFS_PATH)/devconfig/devconfig.mak
 
@@ -212,7 +218,20 @@ endif
 endif
 
 ifeq ($(ENABLE_SHA),yes)
+ifeq ($(ENABLE_HW_SHA),yes)
+WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-hash.c port/ti-am26xx/ti-hmac.c
+else
 WOLFCRYPT_SRC_NAMES += sha256.c sha512.c sha.c md5.c hmac.c
+endif
+endif
+
+# ti-aes.c also hosts the DTHE init/handle/mutex shared with ti-hash.c/
+# ti-hmac.c (see ti-ccm.h). Compile it for hardware SHA too, when hardware
+# AES isn't already pulling it in above.
+ifeq ($(ENABLE_HW_SHA),yes)
+ifneq ($(ENABLE_HW_AES),yes)
+WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-aes.c
+endif
 endif
 
 ifeq ($(ENABLE_RSA),yes)
@@ -362,6 +381,11 @@ endif
 ifeq ($(ENABLE_HW_AES),yes)
 ALGO_DEFINES += -DWOLFSSL_TI_CRYPT
 endif
+ifeq ($(ENABLE_HW_SHA),yes)
+# ti-hash.c doesn't implement the truncated SHA-512/224 and SHA-512/256
+# variants; disable them so wolfcrypt/src/hash.c doesn't reference them.
+ALGO_DEFINES += -DWOLFSSL_TI_HASH -DWOLFSSL_NOSHA512_224 -DWOLFSSL_NOSHA512_256
+endif
 
 #
 # Defines / flags
@@ -381,7 +405,6 @@ CFLAGS := \
     -Wno-gnu-variable-sized-type-not-at-end \
     -Wno-unused-function \
     -g \
-    -Os \
     $(DEFINES) \
     $(INCLUDES)
 
