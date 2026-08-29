@@ -70,8 +70,9 @@ void Modules_deinit(void);
  * FAULT_INJECTION_HARDENING_ENABLED is defined.
  * Wrapped in #undef / #define to override any fallback default that may
  * have been set by hsm_utils.h before this generated header was included. */
-#undef  FIH_DELAY_LOOP_COUNT
+#ifndef  FIH_DELAY_LOOP_COUNT
 #define FIH_DELAY_LOOP_COUNT    (16U)
+#endif
 
 /* Enable FIH macros (FIH_EQ, FIH_NOT_EQ, FIH_SET) and random delay in
  * HsmServer_FIH_delay(). */
@@ -85,15 +86,22 @@ void Modules_deinit(void);
  * Overrides and locks the KEK, then zeroes keyring and asset structures. */
 #define FIH_ERASE_SECURE_ASSETS
 
+#include <modules/keyring/keyring.h>
+
 /*
  *  Keyring
  */
-#include <modules/keyring/keyring.h>
 
 /* sysconfig generated parameter KEYRING_ASYMM_SIZE */
-#define KEYRING_ASYMM_SIZE   (48U)
+#define KEYRING_ASYMM_SIZE                  (48U)
 /* sysconfig generated parameter KEYRING_SYMM_SIZE */
-#define KEYRING_SYMM_SIZE   (48U)
+#define KEYRING_SYMM_SIZE                   (48U)
+/* sysconfig generated parameter KEYRING_ASYMM_PRIVATE_SIZE */
+#define KEYRING_ASYMM_PRIVATE_SIZE          (0U)
+/* sysconfig generated parameter KEYRING_CUSTOM_DATA_SIZE */
+#define KEYRING_CUSTOM_DATA_SIZE            (0U)
+
+void KEYRING_populate_root_keys(uint8_t keyRevision, uint8_t keyCount);
 
 
 #ifdef __cplusplus
