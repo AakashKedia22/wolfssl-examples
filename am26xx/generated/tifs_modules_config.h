@@ -101,6 +101,18 @@ void Modules_deinit(void);
 /* sysconfig generated parameter KEYRING_CUSTOM_DATA_SIZE */
 #define KEYRING_CUSTOM_DATA_SIZE            (0U)
 
+/* ========================================================================== */
+/*                             Global Variables                               */
+/* ========================================================================== */
+
+extern Keyring_AsymmKey_t   gKeyringAsymmKey[KEYRING_ASYMM_SIZE] ;
+extern Keyring_SymmKey_t   gKeyringSymmKey[KEYRING_SYMM_SIZE];
+extern Keyring_AsymmPrivKey_t   gKeyringAsymmPrivKey[KEYRING_ASYMM_PRIVATE_SIZE];
+extern uint8_t gKeyringCustomData[KEYRING_CUSTOM_DATA_SIZE];
+extern Keyring_Info_t   gKeyringInfo;
+
+
+void KEYRING_init(void);
 void KEYRING_populate_root_keys(uint8_t keyRevision, uint8_t keyCount);
 
 

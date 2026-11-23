@@ -3,7 +3,7 @@
 #define AVAILABLE_MEMORY            (MAX_MEMORY_SIZE - IVT_SIZE)
 
 #define M4_PROCESS_STACK_SIZE       2048
-#define M4_MAIN_STACK_SIZE          (16*1024)
+#define M4_MAIN_STACK_SIZE          (24*1024)   /* 16KB overflowed (~20.5KB used) in the HW ECC make_pub path: wolfCrypt -> ti-ecc.c -> TIFS PKA_ECpMultiply */
 #define M4_HEAP_SIZE                (16*1024)
 #define M4_TOTAL_STACK_SIZE         (M4_PROCESS_STACK_SIZE + M4_MAIN_STACK_SIZE + 8)
 
@@ -27,7 +27,7 @@
  *   uses this stack.
  * - After vTaskStartScheduler() each task created in FreeRTOS has its own stack
  */
---stack_size=16384
+--stack_size=24576
 /* This is the heap size for malloc() API in NORTOS and FreeRTOS
  * This is also the heap used by pvPortMalloc in FreeRTOS
  */

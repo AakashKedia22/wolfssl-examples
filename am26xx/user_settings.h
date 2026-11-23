@@ -62,11 +62,23 @@
 #define ECC_TIMING_RESISTANT
 #define HAVE_ECC256
 #define WOLFSSL_HAVE_SP_ECC
+/* Makefile ENABLE_ECC384 / ENABLE_ECC521 pass HAVE_ECCxxx + WOLFSSL_SP_xxx;
+ * keep them consistent if only the curve define is given. */
+#if defined(HAVE_ECC384) && !defined(WOLFSSL_SP_384)
+    #define WOLFSSL_SP_384
+#endif
+#if defined(HAVE_ECC521) && !defined(WOLFSSL_SP_521)
+    #define WOLFSSL_SP_521
+#endif
 #endif
 
 /* ---- RSA ---- */
 #define HAVE_RSA
-#define RSA_LOW_MEM
+#ifndef WOLFSSL_TI_RSA
+    /* Software RSA only. The PKA path (WOLFSSL_TI_RSA) needs dP/dQ/u (CRT
+     * parameters), which RSA_LOW_MEM would not keep in RsaKey. */
+    #define RSA_LOW_MEM
+#endif
 #define WOLFSSL_HAVE_SP_RSA
 #define WC_RSA_BLINDING
 
@@ -114,9 +126,20 @@
 #define WOLFSSL_IGNORE_FILE_WARN
 #define NO_ERROR_STRINGS
 
-/* ---- RNG -- TRNG via MCU+ SDK ---- */
-int cust_rand_generate_block(unsigned char *rndb, unsigned int sz);
-#define CUSTOM_RAND_GENERATE_BLOCK  cust_rand_generate_block
+/* ---- RNG ---- */
+#if defined(WOLFSSL_TI_RNG)
+    /* AM263Px TRNG (wolfcrypt/src/port/ti-am26xx/ti-rng.c) */
+    int wolfSSL_TI_GenerateSeed(unsigned char* output, unsigned int sz);
+    #ifndef NO_SHA256
+        #define CUSTOM_RAND_GENERATE_SEED   wolfSSL_TI_GenerateSeed  /* seeds Hash_DRBG */
+    #else
+        #define CUSTOM_RAND_GENERATE_BLOCK  wolfSSL_TI_GenerateSeed  /* no SHA-256: raw TRNG */
+    #endif
+#else
+    /* NOT cryptographically secure (xorshift, wolfssl_platform.c). Test/benchmark only. */
+    int cust_rand_generate_block(unsigned char *rndb, unsigned int sz);
+    #define CUSTOM_RAND_GENERATE_BLOCK  cust_rand_generate_block
+#endif
 #ifndef WC_RESEED_INTERVAL
     #define WC_RESEED_INTERVAL (1000000)
 #endif

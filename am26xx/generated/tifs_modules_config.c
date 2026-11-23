@@ -56,7 +56,7 @@ void HsmServer_config(void)
     /* list the cores that will do IPC Notify with this core
     * Make sure to NOT list 'self' core in the list below
     */
-    sipcParams.numCores = 2;
+    sipcParams.numCores = 2U;
 
     /* specify the priority of SIPC Notify interrupt */
     sipcParams.intrPriority = 7U;
@@ -105,14 +105,10 @@ Keyring_AsymmPrivKey_t   gKeyringAsymmPrivKey[KEYRING_ASYMM_PRIVATE_SIZE] __attr
 uint8_t gKeyringCustomData[KEYRING_CUSTOM_DATA_SIZE] __attribute__((section(".keyring_custom_data_mem")));
 
 
-extern Asset_Info gAssetInfo;
-
 /* ========================================================================== */
 /*                        Function Prototypes                                 */
 /* ========================================================================== */
 
-
-void KEYRING_populate_root_keys(uint8_t keyRevision, uint8_t keyCount);
 
 
 void KEYRING_init_secMgrBased(void)

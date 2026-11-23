@@ -9,18 +9,33 @@
 #   - TI TIFS SDK for AM263Px     (TIFS_PATH)
 #   - TI MCU+ SDK for AM263Px     (MCU_PLUS_SDK_PATH)
 #   - TI ARM CLANG compiler       (via CCS_PATH / CGT_TI_ARM_CLANG_PATH)
-#   - SysConfig 1.27.x            (via SYSCFG_PATH)
+#   - SysConfig >= 1.28.0         (via SYSCFG_PATH; see README "SysConfig regeneration")
 #   - wolfSSL source tree         (WOLFSSL_PATH)
 #
+# All paths below are ?= defaults: override on the command line or in the environment.
+#
 
-TIFS_PATH          ?= /home/aakashk/aakashk/tifs_4
-MCU_PLUS_SDK_PATH  ?= /home/aakashk/aakashk/mcu_plus_sdk
-WOLFSSL_PATH       ?= ../../wolfssl
-CCS_PATH           ?= /home/aakashk/ti/ccs2100/ccs
-SYSCFG_PATH        ?= /home/aakashk/ti/sysconfig_1.28.0
-SYSCFG_NODE        ?= $(CCS_PATH)/tools/node/node
-PROFILE            ?= release
-DEVICE_TYPE        ?= HS
+TIFS_PATH           ?= ../../../ti-sdk/TI/tifs_sdk_am263px
+MCU_PLUS_SDK_PATH   ?= ../../../ti-sdk/mcu_plus_sdk_am263px
+WOLFSSL_PATH        ?= ../../wolfssl
+CCS_PATH            ?= /Applications/ti/ccs2050/ccs
+SYSCFG_PATH         ?= $(HOME)/ti/sysconfig_1.28.0
+SYSCFG_NODE         ?= $(CCS_PATH)/tools/node/node
+SYSCFG_PRODUCT_JSON ?= $(TIFS_PATH)/.metadata/product.json
+PROFILE             ?= release
+DEVICE_TYPE         ?= HS
+
+# Optimisation level for every object (test/benchmark sizes: see README "Optimisation").
+# Object dependencies do not track OPT, so run "make clean" after changing it.
+OPT ?= -Os
+
+# Snapshot of the user-facing values above. imports.mak assigns MCU_PLUS_SDK_PATH and
+# SYSCFG_* unconditionally (plain "=" and "export"), which would otherwise clobber the
+# values given on the command line or in the environment. They are restored after the
+# includes below.
+USER_MCU_PLUS_SDK_PATH := $(MCU_PLUS_SDK_PATH)
+USER_SYSCFG_PATH       := $(SYSCFG_PATH)
+USER_SYSCFG_NODE       := $(SYSCFG_NODE)
 
 #
 # Selective wolfCrypt algorithm build config.
@@ -35,6 +50,7 @@ ENABLE_SHA    ?= yes
 ENABLE_RSA    ?= no
 ENABLE_ECC    ?= no
 ENABLE_CHACHA ?= no
+ENABLE_ED25519 ?= no    # software Ed25519 (ed25519.c over fe/ge_low_mem.c, ED25519_SMALL)
 
 # When yes, AES is offloaded to the AM263Px's DTHE hardware crypto engine
 # (wolfcrypt/src/port/ti-am26xx/ti-aes.c) instead of running in software
@@ -47,8 +63,88 @@ ENABLE_HW_AES ?= no
 # ENABLE_HW_AES; either or both may be enabled.
 ENABLE_HW_SHA ?= no
 
+# Temporary: skip only the wolfCrypt SHA-1 test (test.c sha_test). SHA-1 itself
+# stays enabled (on the DTHE with ENABLE_HW_SHA=yes), which gives wrong digests
+# for inputs over ~128 bytes on AM263Px. Remove once TI answers.
+SKIP_SHA1_TEST ?= no
+
+# Benchmark command-line options, space separated (e.g. BENCH_ARGS=-asym or
+# "-aes-cbc -sha256"). The HSM log is a 4KB ring, so a full run with RSA/ECC
+# and crypto callbacks overflows it; split the run with these. Empty = all.
+# Not tracked as a dependency: "make clean" after changing it.
+BENCH_ARGS ?=
+
+# PKA (AsymCrypt) offload through a WOLF_CRYPTO_CB device
+# (wolfcrypt/src/port/ti-am26xx/ti-pka.c + ti-rsa.c / ti-ecc.c). The software
+# rsa.c/ecc.c stay in the build: they do padding/ASN.1/keygen/ECDH and are the
+# fallback for everything the PKA path does not handle.
+ENABLE_HW_RSA ?= no     # RSA private/public op on the PKA (needs ENABLE_RSA=yes)
+ENABLE_HW_ECC ?= no     # ECDSA sign/verify on the PKA (needs ENABLE_ECC=yes)
+ENABLE_HW_ED25519 ?= no # Ed25519 keygen/sign/verify on the PKA (ti-ed25519.c, needs ENABLE_ED25519=yes)
+
+# When yes, the wolfCrypt seed source is the AM263Px TRNG
+# (wolfcrypt/src/port/ti-am26xx/ti-rng.c) feeding Hash_DRBG, instead of the
+# non-cryptographic xorshift generator in wolfssl_platform.c.
+ENABLE_HW_RNG ?= no
+
+# Extra curves / key sizes (the software SP code is enabled to match)
+ENABLE_ECC384  ?= no    # needs ENABLE_ECC=yes
+ENABLE_ECC521  ?= no    # needs ENABLE_ECC=yes
+ENABLE_RSA4096 ?= no    # needs ENABLE_RSA=yes
+
+# wolfCrypt devId of the PKA crypto-callback device. Must not be 1 (used by
+# the wolfCrypt cryptocb_test).
+TI_PKA_DEVID ?= 0x2D
+
+ifeq ($(ENABLE_HW_RSA),yes)
+ifneq ($(ENABLE_RSA),yes)
+$(error ENABLE_HW_RSA=yes requires ENABLE_RSA=yes)
+endif
+endif
+ifeq ($(ENABLE_HW_ECC),yes)
+ifneq ($(ENABLE_ECC),yes)
+$(error ENABLE_HW_ECC=yes requires ENABLE_ECC=yes)
+endif
+ifneq ($(ENABLE_HW_RNG),yes)
+$(warning ENABLE_HW_ECC without ENABLE_HW_RNG: ECDSA nonces come from a non-cryptographic PRNG)
+endif
+endif
+ifeq ($(ENABLE_ED25519),yes)
+ifneq ($(ENABLE_SHA),yes)
+$(error ENABLE_ED25519=yes requires ENABLE_SHA=yes (SHA-512))
+endif
+endif
+ifeq ($(ENABLE_HW_ED25519),yes)
+ifneq ($(ENABLE_ED25519),yes)
+$(error ENABLE_HW_ED25519=yes requires ENABLE_ED25519=yes)
+endif
+endif
+ifneq ($(filter yes,$(ENABLE_ECC384) $(ENABLE_ECC521)),)
+ifneq ($(ENABLE_ECC),yes)
+$(error ENABLE_ECC384/ENABLE_ECC521 require ENABLE_ECC=yes)
+endif
+endif
+ifeq ($(ENABLE_RSA4096),yes)
+ifneq ($(ENABLE_RSA),yes)
+$(error ENABLE_RSA4096=yes requires ENABLE_RSA=yes)
+endif
+endif
+ifneq ($(filter yes,$(ENABLE_HW_RSA) $(ENABLE_HW_ECC) $(ENABLE_HW_ED25519)),)
+ifeq ($(TI_PKA_DEVID),1)
+$(error TI_PKA_DEVID must not be 1 (wolfCrypt cryptocb_test uses it))
+endif
+endif
+
+TI_HW_ANY := $(filter yes,$(ENABLE_HW_AES) $(ENABLE_HW_SHA) $(ENABLE_HW_RSA) $(ENABLE_HW_ECC) $(ENABLE_HW_ED25519) $(ENABLE_HW_RNG))
+TI_HW_PKA := $(filter yes,$(ENABLE_HW_RSA) $(ENABLE_HW_ECC) $(ENABLE_HW_ED25519))
+
 include $(TIFS_PATH)/imports.mak
 include $(TIFS_PATH)/devconfig/devconfig.mak
+
+# Re-apply the user-facing values clobbered by imports.mak (see the snapshot above).
+override MCU_PLUS_SDK_PATH := $(USER_MCU_PLUS_SDK_PATH)
+override SYSCFG_PATH       := $(USER_SYSCFG_PATH)
+override SYSCFG_NODE       := $(USER_SYSCFG_NODE)
 
 CG_TOOL_ROOT := $(CGT_TI_ARM_CLANG_PATH)
 CC           := $(CG_TOOL_ROOT)/bin/tiarmclang
@@ -196,6 +292,7 @@ GENERATED_SRCS := \
 WOLFCRYPT_SRC_NAMES := \
     wc_port.c \
     wc_encrypt.c \
+    memory.c \
     random.c \
     logging.c \
     coding.c \
@@ -225,13 +322,27 @@ WOLFCRYPT_SRC_NAMES += sha256.c sha512.c sha.c md5.c hmac.c
 endif
 endif
 
-# ti-aes.c also hosts the DTHE init/handle/mutex shared with ti-hash.c/
-# ti-hmac.c (see ti-ccm.h). Compile it for hardware SHA too, when hardware
-# AES isn't already pulling it in above.
-ifeq ($(ENABLE_HW_SHA),yes)
-ifneq ($(ENABLE_HW_AES),yes)
-WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-aes.c
+# ti-am26xx.c hosts the DTHE/PKA handles and the TI mutex shared by all of the
+# hardware-offload sources (see ti-am26xx.h). Added exactly once, whenever any
+# hardware option is on. (TIFS pka.c, eip29t2_firmware.c, ecdsa.c and rng.c are
+# already in TIFS_SRCS, so nothing extra is needed on the TIFS side.)
+ifneq ($(TI_HW_ANY),)
+WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-am26xx.c
 endif
+ifneq ($(TI_HW_PKA),)
+WOLFCRYPT_SRC_NAMES += cryptocb.c port/ti-am26xx/ti-pka.c
+endif
+ifeq ($(ENABLE_HW_RSA),yes)
+WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-rsa.c
+endif
+ifeq ($(ENABLE_HW_ECC),yes)
+WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-ecc.c
+endif
+ifeq ($(ENABLE_HW_ED25519),yes)
+WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-ed25519.c
+endif
+ifeq ($(ENABLE_HW_RNG),yes)
+WOLFCRYPT_SRC_NAMES += port/ti-am26xx/ti-rng.c
 endif
 
 ifeq ($(ENABLE_RSA),yes)
@@ -240,6 +351,10 @@ endif
 
 ifeq ($(ENABLE_ECC),yes)
 WOLFCRYPT_SRC_NAMES += ecc.c
+endif
+
+ifeq ($(ENABLE_ED25519),yes)
+WOLFCRYPT_SRC_NAMES += ed25519.c
 endif
 
 ifeq ($(ENABLE_CHACHA),yes)
@@ -386,6 +501,38 @@ ifeq ($(ENABLE_HW_SHA),yes)
 # variants; disable them so wolfcrypt/src/hash.c doesn't reference them.
 ALGO_DEFINES += -DWOLFSSL_TI_HASH -DWOLFSSL_NOSHA512_224 -DWOLFSSL_NOSHA512_256
 endif
+ifeq ($(ENABLE_HW_RSA),yes)
+ALGO_DEFINES += -DWOLFSSL_TI_RSA
+endif
+ifeq ($(ENABLE_HW_ECC),yes)
+ALGO_DEFINES += -DWOLFSSL_TI_ECC
+endif
+ifeq ($(ENABLE_ED25519),yes)
+# fe_low_mem.c/ge_low_mem.c are already in the always-built list.
+ALGO_DEFINES += -DHAVE_ED25519 -DED25519_SMALL
+endif
+ifeq ($(ENABLE_HW_ED25519),yes)
+ALGO_DEFINES += -DWOLFSSL_TI_ED25519
+endif
+ifneq ($(TI_HW_PKA),)
+# WC_USE_DEVID makes wolfCrypt test/benchmark create every key with this devId
+# so the stock suites exercise the PKA path.
+ALGO_DEFINES += -DWOLF_CRYPTO_CB -DWOLFSSL_TI_PKA_DEV_ID=$(TI_PKA_DEVID) -DWC_USE_DEVID=$(TI_PKA_DEVID)
+endif
+ifeq ($(ENABLE_HW_RNG),yes)
+# On the command line: wolfssl_platform.c does not include settings.h.
+ALGO_DEFINES += -DWOLFSSL_TI_RNG
+endif
+ifeq ($(ENABLE_ECC384),yes)
+ALGO_DEFINES += -DHAVE_ECC384 -DWOLFSSL_SP_384
+endif
+ifeq ($(ENABLE_ECC521),yes)
+ALGO_DEFINES += -DHAVE_ECC521 -DWOLFSSL_SP_521
+endif
+ifeq ($(ENABLE_RSA4096),yes)
+# Also makes SP_INT_BITS 4096 (a 4096-bit key cannot be decoded without it).
+ALGO_DEFINES += -DWOLFSSL_SP_4096
+endif
 
 #
 # Defines / flags
@@ -404,6 +551,7 @@ CFLAGS := \
     -Wall \
     -Wno-gnu-variable-sized-type-not-at-end \
     -Wno-unused-function \
+    $(OPT) \
     -g \
     $(DEFINES) \
     $(INCLUDES)
@@ -417,25 +565,6 @@ LDFLAGS := \
 LIBC := -llibc.a
 
 LINKER_CMD := ti-arm-clang/linker.cmd
-
-#
-# SysConfig
-#
-SYSCFG_GEN_FILES := \
-    generated/ti_drivers_config.c \
-    generated/ti_drivers_config.h \
-    generated/ti_drivers_open_close.c \
-    generated/ti_drivers_open_close.h \
-    generated/ti_dpl_config.c \
-    generated/ti_dpl_config.h \
-    generated/ti_pinmux_config.c \
-    generated/ti_power_clock_config.c \
-    generated/ti_board_config.c \
-    generated/ti_board_config.h \
-    generated/ti_board_open_close.c \
-    generated/ti_board_open_close.h \
-    generated/tifs_modules_config.c \
-    generated/tifs_modules_config.h
 
 .PHONY: all clean syscfg wolfcrypt-test wolfcrypt-benchmark install
 
@@ -463,9 +592,14 @@ $(OUT_DIR)/wolfcrypt/%.o: $(WOLFSSL_PATH)/wolfcrypt/%.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) -MMD -o $@ $<
 
+TEST_DEFINES :=
+ifeq ($(SKIP_SHA1_TEST),yes)
+TEST_DEFINES += -DWC_TEST_SKIP_SHA1
+endif
+
 $(TEST_OBJ): $(WOLFSSL_TEST_SRC)
 	@mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -MMD -DNO_MAIN_FUNCTION -o $@ $<
+	$(CC) -c $(CFLAGS) -MMD -DNO_MAIN_FUNCTION $(TEST_DEFINES) -o $@ $<
 
 $(BENCH_OBJ): $(WOLFSSL_BENCH_SRC)
 	@mkdir -p $(dir $@)
@@ -475,9 +609,15 @@ $(MAIN_TEST_OBJ): main.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) -MMD -o $@ $<
 
+BENCH_DEFINES :=
+ifneq ($(strip $(BENCH_ARGS)),)
+comma := ,
+BENCH_DEFINES += -DWC_BENCH_ARGV='$(subst " ,"$(comma),$(patsubst %,"%" ,$(strip $(BENCH_ARGS))))'
+endif
+
 $(MAIN_BENCH_OBJ): main.c
 	@mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -MMD -DWOLFCRYPT_BENCHMARK -o $@ $<
+	$(CC) -c $(CFLAGS) -MMD -DWOLFCRYPT_BENCHMARK $(BENCH_DEFINES) -o $@ $<
 
 #
 # Link rules
@@ -493,21 +633,21 @@ $(OUT_DIR)/$(OUTNAME_BENCH): $(TIFS_OBJS) $(GENERATED_OBJS) $(WOLFSSL_OBJS) $(PL
 	$(OBJCOPY) -O binary $@ $(basename $@).bin
 
 #
-# SysConfig generation
+# SysConfig generation (make syscfg). Not a build prerequisite, and it always runs:
+# a multi-target rule over the generated files would run the tool once per file.
+# Uses SYSCFG_NODE / SYSCFG_PATH / SYSCFG_PRODUCT_JSON / MCU_PLUS_SDK_PATH, all overridable.
 #
-$(SYSCFG_GEN_FILES): wolfssl.syscfg
+syscfg:
 	@echo Generating SysConfig files ...
 	$(SYSCFG_NODE) $(SYSCFG_PATH)/dist/cli.js \
-	    --product $(SYSCFG_TIFSPRODUCT) \
-	    --product $(SYSCFG_SDKPRODUCT) \
+	    --product $(SYSCFG_PRODUCT_JSON) \
+	    --product $(MCU_PLUS_SDK_PATH)/.metadata/product.json \
 	    --context hsm0-0 --part AM263P4 --package ZCZ_S \
 	    --output generated/ wolfssl.syscfg
 	@rm -f generated/ti_enet_*.c generated/ti_enet_*.h \
 	      generated/ti_usb_*.c generated/ti_usb_*.h \
 	      generated/ti_sdl_*.c generated/ti_sdl_*.h \
 	      generated/ti_drivers_networking_config.c generated/ti_drivers_networking_config.h
-
-syscfg: $(SYSCFG_GEN_FILES)
 
 #
 # Post-build: sign the linked binary into a boot-loadable .hsmimage and,
@@ -535,7 +675,7 @@ LIC_TSPA               := ti_tspa
 ifeq ($(DEVICE_TYPE),HS)
 BOOTIMAGE_CERT_KEY := $(HSM_SIGNING_KEY)
 else
-BOOTIMAGE_CERT_KEY := $(MCU_PLUS_SDK_PATH)/tools/boot/signing/mcu_gpkey.pem
+BOOTIMAGE_CERT_KEY := $(MCU_PLUS_SDK_PATH)/source/security/security_common/tools/boot/signing/mcu_gpkey.pem
 endif
 
 HSMRT_IMG      := $(MCU_PLUS_SDK_PATH)/source/security/security_common/drivers/hsmclient/soc/am263px/hsmRtImg.h

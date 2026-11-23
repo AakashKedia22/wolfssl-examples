@@ -46,9 +46,13 @@ extern "C" {
 #include <kernel/dpl/HwiP.h>
 #include <kernel/dpl/ClockP.h>
 #include <kernel/dpl/DebugP.h>
-
+void putchar_(char character);
 #include <kernel/dpl/CacheP.h>
 #include <kernel/dpl/MpuP_armv7.h>
+
+#define BOOT_SECTION __attribute__((section(".text.boot"), do_not_share))
+
+void BOOT_SECTION __mpu_init(void);
 
 
 void Dpl_init(void);

@@ -8,7 +8,9 @@
 /* HSM Cortex-M4 core clock, AM263Px */
 #define CPU_FREQ_MHZ    200U
 
+#ifndef WOLFSSL_TI_RNG
 static uint64_t gRandState;
+#endif
 
 /* CycleCounterP_getCount32() wraps every ~21.4s at 200MHz; accumulate
  * deltas into a 64b running count so clock_gettime() stays monotonic
@@ -16,6 +18,7 @@ static uint64_t gRandState;
 static uint64_t gTotalCycles;
 static uint32_t gLastCycleCount;
 
+#ifndef WOLFSSL_TI_RNG
 int cust_rand_generate_block(unsigned char *rndb, unsigned int sz)
 {
     unsigned int i;
@@ -29,6 +32,7 @@ int cust_rand_generate_block(unsigned char *rndb, unsigned int sz)
     }
     return 0;
 }
+#endif /* !WOLFSSL_TI_RNG */
 
 int clock_gettime(int clk_id, struct timespec *ts)
 {
@@ -47,7 +51,9 @@ int clock_gettime(int clk_id, struct timespec *ts)
 
 void wolfssl_platform_init(void)
 {
+#ifndef WOLFSSL_TI_RNG
     gRandState = ClockP_getTicks();
+#endif
     CycleCounterP_reset();
     gLastCycleCount = CycleCounterP_getCount32();
     gTotalCycles = 0;

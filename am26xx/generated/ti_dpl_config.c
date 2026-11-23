@@ -54,8 +54,10 @@ ClockP_Config gClockConfig = {
 };
 
 /* ----------- DebugP ----------- */
+
 void putchar_(char character)
-{
+{   
+    (void)character;
     /* Output to memory trace buffer */
     DebugP_memLogWriterPutChar(character);
 }
@@ -132,10 +134,10 @@ const MpuP_RegionConfig gMpuRegionConfig[CONFIG_MPU_NUM_REGIONS] RODATA_CFG_SECT
 };
 
 
-#define BOOT_SECTION __attribute__((section(".text.boot"), do_not_share))
-
 /* This function is called by _c_int00 */
-void BOOT_SECTION __mpu_init() 
+
+
+void BOOT_SECTION __mpu_init(void)
 {
     MpuP_init();
     
