@@ -436,7 +436,7 @@ mpu_firewall23.mpu_region[0].$name          = "CONFIG_MPU_FIREWALL_REGION64";
 mpu_firewall23.mpu_region[0].allaidConfig   = true;
 mpu_firewall23.mpu_region[0].allPermissions = true;
 
-clock.timerInputClkHz = 20000000;
+clock.timerInputClkHz = 200000000;
 
 debug_log.enableCssLog         = false;
 debug_log.enableMemLog         = true;

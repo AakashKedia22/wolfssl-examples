@@ -46,7 +46,7 @@
 ClockP_Config gClockConfig = {
     .timerBaseAddr = M4_SYSTICK_BASE_ADDR, 
     .timerHwiIntNum = 15,
-    .timerInputClkHz = 20000000,
+    .timerInputClkHz = 200000000,
     .timerInputPreScaler = 1,
     .usecPerTick = 1000,
     .intrPriority = 7,
